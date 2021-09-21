@@ -1,0 +1,1 @@
+The proportion of individuals aged 5 years or older with 2 or more residential changes during the past five years10. Residential transience was measured as a movement of address across municipality boundaries according to the 98-level municipality structure. This information originated from in the Danish Civil Registration System.

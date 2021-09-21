@@ -1,0 +1,1 @@
+The proportion of individuals aged 15 years and above who during the past 10 years had a conviction of any crime (including violent crimes). Information of crimes stem from the National Crime Register, which was available from 1980 onwards. Information on any crime among people aged 15 years and above was complete from 1991 onwards.

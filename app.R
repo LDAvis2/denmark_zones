@@ -9,6 +9,28 @@ Sys.setenv(MAPBOX_TOKEN = "pk.eyJ1IjoiY3BzaWV2ZXJ0IiwiYSI6ImNpdGRiOWwwMjAwMHQyem
 zones <- feather::read_feather("data/zones.feather")
 zones$urban = factor(zones$urban, c("Rural area", "Provincial town", "Provincial city", "Capital suburb", "Capital"))
 
+
+years <- c(
+  "1981_1984",
+  "1990_1994",
+  "1995_1999",
+  "2000_2004",
+  "2005_2009",
+  "2010_2014"
+)
+
+# Fix up truncated years in residentialtransience variable names
+typo_map <- setNames(
+  years, c("1981_19", "1990_19", "1995_19", "2000_20", "2005_20", "2010_20")
+)
+
+typo_map <- setNames(
+  paste0("pi_residentialtransience_", typo_map),
+  paste0("pi_residentialtransience_", names(typo_map))
+)
+names(zones) <- recode(names(zones), !!!typo_map)
+
+
 measures <- c(
   "Low income" = "pi_lowincome",
   "Short education" = "pi_basiceducation",
@@ -44,7 +66,7 @@ format_numbers <- function(x, n = 1) {
 ABOUT <- div(
   id = "about",
   class = "bg-light text-center",
-  style = "height: 550px; padding-top: 100px;",
+  style = "padding-top: 100px;padding-bottom: 50px",
   div(
     class = "container",
     h1("Learn more"),
@@ -55,66 +77,76 @@ ABOUT <- div(
       "TO BE DETERMINED.",
       "See the links below for information about this study, ",
       "our contact information, and more about our work at ",
-      a(href = "https://econ.au.dk", "econ.au.dk", .noWS = "after"),
+      a(href = "https://cirrau.au.dk", "cirrau.au.dk"),
+      "and",
+      a(href = "https://bertha.au.dk", "bertha.au.dk", .noWS = "after"),
       ". To cite the paper use TO BE DETERMINED."
     ),
     div(
       class="d-flex justify-content-center",
       # TODO: paper link
       a(class = "btn btn-primary btn-xl text-uppercase", href = "#", "Paper"),
-      a(class = "btn btn-primary btn-xl text-uppercase", "data-bs-toggle"="modal", href="#dataDownload", "Data"),
       a(class="btn btn-primary btn-xl text-uppercase", href="mailto:cbp@econ.au.dk", "Contact"),
-      a(class="btn btn-primary btn-xl text-uppercase", href="https://econ.au.dk", "econ.au.dk")
+      a(class="btn btn-primary btn-xl text-uppercase", href="https://cirrau.au.dk", "cirrau.au.dk")
+    ),
+    div(
+      class="d-flex justify-content-center",
+      style = "padding-top: 1rem",
+      a(href = "https://bertha.au.dk", img(src = "images/bertha-logo.png", height = "125px"))
     )
-  )
-)
-
-shiny::addResourcePath("data", "data-raw")
-
-ABOUT_MODAL <- modal(
-  id = "dataDownload", title = "Data download",
-  body = "Download data using the buttons below: ",
-  buttons = list(
-    "data/nli_zone0221_transpose.csv" = "Zonal indicators",
-    "data/zone2016_kom_v01_clean.shp" = "Zonal regions shape file"
   )
 )
 
 
 ui <- fluidPage(
   theme = bslib::bs_theme(version = 5) %>%
-    bslib::bs_add_rules(".accordion h2 {margin-top: 0}") %>%
+    bslib::bs_add_rules(c(
+      ".accordion h2 {margin-top: 0}",
+      ".recalculating { opacity:1 !important; }"
+    )) %>%
     bslib::bs_add_rules(lapply(dir("scss", full.names = TRUE), sass::sass_file)),
   div(
     class = "pt-4 d-flex justify-content-center",
     style = "margin-bottom: -1rem",
     tags$span("Overview of ", class = "lead px-4"),
     selectInput("measure", NULL, measures, selectize = FALSE, width = "auto"),
-    tags$span("between ", class = "lead px-4"),
-    uiOutput("year")
+    tags$span("between ", class = "lead px-5"),
+    uiOutput("year"),
+    actionButton("animate", "", icon = shiny::icon("play"), style = "height: fit-content; margin-left: 1rem")
   ),
-  div(class = "d-flex justify-content-center", plotlyOutput("map", height = "650px", width = "80%")),
+  div(
+    class = "d-flex justify-content-center",
+    plotlyOutput("map", height = "650px", width = "80%")
+  ),
+  div(
+    class = "d-flex justify-content-end", style = "width: 90%",
+    checkboxInput("global_quantiles", "Show quantiles over entire time period", value = FALSE)
+  ),
   accordion(
     accordion_item("Background on zonal regions", includeMarkdown("background.md")),
     accordion_item("Measurement details", uiOutput("description"), show = TRUE),
     accordion_item("Aggregation details", includeMarkdown("aggregation.md")),
   ),
-  ABOUT, ABOUT_MODAL
+  ABOUT
 )
 
 server <- function(input, output, session) {
 
-  output$year <- renderUI({
+  year_choices <- reactive({
     req(input$measure)
     if (input$measure %in% names(zones)) return(NULL)
     vars <- grep(paste0("^", input$measure), names(zones), value = TRUE)
-    choices <- vapply(strsplit(vars, "_"), function(x) {
+    vapply(strsplit(vars, "_"), function(x) {
       n <- length(x)
       paste(x[c(n - 1, n)], collapse = "_")
     }, character(1))
+  })
+
+  output$year <- renderUI({
+    choices <- year_choices()
     shinyWidgets::sliderTextInput(
       "year", NULL, choices, hide_min_max = TRUE,
-      selected = choices[length(choices)]
+      selected = choices[1]
     )
   })
 
@@ -136,8 +168,16 @@ server <- function(input, output, session) {
     zones[[var_name()]]
   })
 
+  all_vals <- reactive({
+    if (input$measure %in% names(zones)) {
+      return(vals())
+    }
+    vars <- grep(input$measure, names(zones), value = TRUE, fixed = TRUE)
+    c(as.matrix(zones[vars]))
+  })
+
   lvls <- reactive({
-    v <- vals()
+    v <- if (isTRUE(input$global_quantiles)) all_vals() else vals()
     if (is.numeric(v)) {
       quantile(v, seq(0, 1, length.out = 6), na.rm = TRUE)
     } else {
@@ -156,19 +196,24 @@ server <- function(input, output, session) {
 
   ids <- reactive(zones$ID2)
 
+  initial_draw <- TRUE
+
   output$map <- renderPlotly({
     req(input$measure, input$year)
 
     title <- names(measures)[match(input$measure, measures)]
 
     lvls <- lvls()
-    lvl_names <- lvls
-    if (is.numeric(lvls())) {
-      lvls <- lvls[-1]
-      lvl_names <- paste0("≤ ", format_numbers(lvls))
+    if (is.numeric(lvls)) {
+      lvls_ <- format_numbers(lvls)
+      lvl_names <- vapply(seq.int(1, length(lvls) - 1), function(i) {
+        paste0(lvls_[c(i, i+1)], collapse = " - ")
+      }, character(1))
+    } else {
+      lvl_names <- lvls
     }
 
-    plot_mapbox() %>%
+    p <- plot_mapbox() %>%
       add_trace(
         type = "choroplethmapbox",
         geojson = "https://raw.githubusercontent.com/LDAvis2/denmark_zones/main/data/zones.json",
@@ -185,7 +230,7 @@ server <- function(input, output, session) {
       ) %>%
       add_trace(
         type = "scattermapbox",
-        split = seq_along(lvls),
+        split = seq_along(lvl_names),
         x = 0, y = 0,
         name = lvl_names,
         color = I(colscale[[2]]),
@@ -194,7 +239,7 @@ server <- function(input, output, session) {
       hide_colorbar() %>%
       config(displaylogo = FALSE, modeBarButtonsToRemove = c('sendDataToCloud','select2d','lasso2d','hoverClosestCartesian','hoverCompareCartesian')) %>%
       layout(
-        transition = list(duration = 1000, easing = "linear"),
+        transition = list(duration = 10, easing = "linear"),
         legend = list(
           title = list(text = title),
           orientation = "h",
@@ -203,14 +248,42 @@ server <- function(input, output, session) {
           xanchor = "center"
         ),
         mapbox = list(
-          style = "light", zoom = 6,
-          center = list(
+          style = "light", zoom = isolate(input$map_zoom) %||% 6,
+          center = isolate(input$map_center) %||% list(
             # Taken from sf::st_bbox() on shapefile
             lon = mean(c(8.07251, 15.15738)),
             lat = mean(c(54.55908, 57.75257))
           )
         )
+      ) %>%
+      htmlwidgets::onRender(
+        "function(el) {
+          el.on('plotly_relayout', function(d) {
+            Shiny.setInputValue('map_zoom', d['mapbox.zoom'])
+            Shiny.setInputValue('map_center', d['mapbox.center'])
+          })
+         }"
       )
+  })
+
+  animating <- reactiveVal(FALSE)
+  observeEvent(input$animate, {
+    animating((input$animate %% 2) == 1)
+    if (animating()) {
+      updateActionButton(session, "animate", icon = shiny::icon("pause"))
+    } else {
+      updateActionButton(session, "animate", icon = shiny::icon("play"))
+    }
+  })
+
+  observe({
+    invalidateLater(3000)
+    if (animating()) {
+      choices <- isolate(year_choices())
+      idx <- match(isolate(input$year), choices)
+      idx2 <- if (idx == length(choices)) 1 else idx + 1
+      shinyWidgets::updateSliderTextInput(session, "year", selected = choices[[idx2]])
+    }
   })
 }
 

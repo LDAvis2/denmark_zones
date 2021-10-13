@@ -5,7 +5,7 @@ account: csievert
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 4744609
-bundleId: 5078192
+bundleId: 5078305
 url: https://csievert.shinyapps.io/denmark_zones/
-when: 1632776131.41379
-lastSyncTime: 1632776131.4138
+when: 1632778540.33967
+lastSyncTime: 1632778540.33968

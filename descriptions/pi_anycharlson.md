@@ -1,0 +1,1 @@
+Proportion of individuals aged 25 years and above with at least one severe disease during the past 10 years. Diagnostic information on diseases included in Charlson’s comorbidity index was obtained from the National Patient Register. Information is complete from 1987 onwards.

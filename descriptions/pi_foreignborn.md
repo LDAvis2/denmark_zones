@@ -1,1 +1,1 @@
-The proportion of individuals who were foreign born in each data zone12. This information originates from in the Danish Civil Registration System.
+Proportion of individuals born abroad. This information originates from the Danish Civil Registration System and was complete from 1978 onwards.

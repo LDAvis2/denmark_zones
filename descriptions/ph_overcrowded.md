@@ -1,1 +1,1 @@
-Number of people per room was calculated from the number of people in the family divided by the number of rooms shared by the family. Crowding was defined as the proportion of households with more than one person per room.
+Proportion of households with more than one person per room. This information is available from 1981 onwards.

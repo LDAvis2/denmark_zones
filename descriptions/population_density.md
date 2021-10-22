@@ -1,1 +1,1 @@
-The number of inhabitants per square kilometer. Population density was modelled as a log-transformed continuous variable.
+Population density calculated as the number of inhabitants per square kilometer. This information was available from 1978 onwards.

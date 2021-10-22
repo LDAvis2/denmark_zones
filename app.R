@@ -90,9 +90,10 @@ ABOUT <- div(
       a(class="btn btn-primary btn-xl text-uppercase", href="https://cirrau.au.dk", "cirrau.au.dk")
     ),
     div(
-      class="d-flex justify-content-center",
-      style = "padding-top: 1rem",
-      a(href = "https://bertha.au.dk", img(src = "images/bertha-logo.png", height = "125px"))
+      class = "d-flex justify-content-center",
+      style = "padding-top: 1rem; gap: 2rem",
+      a(href = "https://bertha.au.dk", img(src = "images/bertha-logo.png", height = "70px")),
+      a(href = "https://bertha.au.dk", img(src = "images/novo-nordisk.png", height = "70px"))
     )
   )
 )
@@ -112,7 +113,7 @@ ui <- fluidPage(
     selectInput("measure", NULL, measures, selectize = FALSE, width = "auto"),
     tags$span("between ", class = "lead px-5"),
     uiOutput("year"),
-    actionButton("animate", "", icon = shiny::icon("play"), style = "height: fit-content; margin-left: 1rem")
+    uiOutput("animate")
   ),
   div(
     class = "d-flex justify-content-center",
@@ -144,10 +145,16 @@ server <- function(input, output, session) {
 
   output$year <- renderUI({
     choices <- year_choices()
+    if (is.null(choices)) return(NULL)
     shinyWidgets::sliderTextInput(
       "year", NULL, choices, hide_min_max = TRUE,
       selected = choices[1]
     )
+  })
+
+  output$animate <- renderUI({
+    if (is.null(year_choices())) return(NULL)
+    actionButton("animate", "", icon = shiny::icon("play"), style = "height: fit-content; margin-left: 1rem")
   })
 
   output$description <- renderUI({
@@ -196,10 +203,8 @@ server <- function(input, output, session) {
 
   ids <- reactive(zones$ID2)
 
-  initial_draw <- TRUE
-
   output$map <- renderPlotly({
-    req(input$measure, input$year)
+    req(input$measure, input$year, vals())
 
     title <- names(measures)[match(input$measure, measures)]
 
@@ -213,7 +218,7 @@ server <- function(input, output, session) {
       lvl_names <- lvls
     }
 
-    p <- plot_mapbox() %>%
+    plot_mapbox() %>%
       add_trace(
         type = "choroplethmapbox",
         geojson = "https://raw.githubusercontent.com/LDAvis2/denmark_zones/main/data/zones.json",
